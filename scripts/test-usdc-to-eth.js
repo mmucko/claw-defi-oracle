@@ -29,8 +29,11 @@ async function main() {
   const allowance = await usdc.allowance(signer.address, SWAP_ROUTER);
   console.log("Allowance:", allowance > 0n ? "OK" : "NEEDS APPROVAL");
   
-  // Swap 5.9 USDC (we have ~5.98 from two swaps) to ETH
-  const amountIn = hre.ethers.parseUnits("5.5", 6);
+  // Swap available USDC balance to ETH (leave 0.01 buffer)
+  const usdcBal = await usdc.balanceOf(signer.address);
+  const buffer = hre.ethers.parseUnits("0.01", 6);
+  if (usdcBal <= buffer) { console.log("Not enough USDC to swap"); return; }
+  const amountIn = usdcBal - buffer;
   
   const router = new hre.ethers.Contract(SWAP_ROUTER, ROUTER_ABI, signer);
   

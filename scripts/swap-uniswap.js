@@ -118,13 +118,19 @@ async function swapExactUSDCForETH(amountUSDC) {
 
   console.log(`[SWAP] USDC -> ETH | Amount: ${amountUSDC} USDC`);
 
-  // Check and set approval
-  const currentAllowance = await usdc.allowance(signer.address, SWAP_ROUTER);
-  if (currentAllowance < amountIn) {
-    console.log(`[SWAP] Approving USDC spend...`);
-    const approveTx = await usdc.approve(SWAP_ROUTER, ethers.MaxUint256);
-    await approveTx.wait();
-    console.log(`[SWAP] Approval confirmed`);
+  // Check and set approval (separate nonce handling)
+  try {
+    const currentAllowance = await usdc.allowance(signer.address, SWAP_ROUTER);
+    if (currentAllowance < amountIn) {
+      console.log(`[SWAP] Approving USDC spend...`);
+      const approveTx = await usdc.approve(SWAP_ROUTER, ethers.MaxUint256);
+      await approveTx.wait();
+      console.log(`[SWAP] Approval confirmed`);
+      // Wait a beat for nonce to update
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  } catch (e) {
+    console.log(`[SWAP] Approval check/set issue: ${e.message.slice(0,80)}, proceeding...`);
   }
 
   // Get quote for slippage calc
