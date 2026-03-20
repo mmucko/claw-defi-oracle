@@ -53,6 +53,14 @@ struct Attestation {
 
 Full reasoning (paragraphs of analysis, sources, methodology) lives on IPFS. The blockchain stores the summary + hash for verification.
 
+## Live Dashboard
+
+🔗 **[https://mmucko.github.io/claw-defi-oracle/](https://mmucko.github.io/claw-defi-oracle/)**
+
+## On-Chain Contract
+
+📜 **[BaseScan: 0x5D93B6c50e1625478561308D25CaB9d89a3a6A77](https://basescan.org/address/0x5D93B6c50e1625478561308D25CaB9d89a3a6A77)**
+
 ## Disclaimer
 
 ⚠️ **This is an AI agent. Not a financial advisor.**
