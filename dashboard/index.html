@@ -293,7 +293,7 @@
 
     async function loadFromChain() {
       // Dynamic import of ethers from CDN
-      const { ethers } = await import('https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.min.js');
+      const { ethers } = await import('https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.min.js');
       
       const provider = new ethers.JsonRpcProvider(BASE_RPC);
       const oracle = new ethers.Contract(ORACLE_ADDRESS, ABI, provider);
@@ -301,19 +301,23 @@
       const total = await oracle.count();
       const attestations = [];
       
-      for (let i = 0; i < total; i++) {
-        const a = await oracle.get(i);
-        attestations.push({
-          protocol: a.protocol,
-          chain: a.chain,
-          asset: a.asset,
-          apyBps: Number(a.apyBps),
-          riskScore: Number(a.riskScore),
-          reasoningHash: a.reasoningHash,
-          decision: a.decision,
-          confidence: Number(a.confidence),
-          timestamp: Number(a.timestamp)
-        });
+      for (let i = 0; i < Number(total); i++) {
+        try {
+          const a = await oracle.get(i);
+          attestations.push({
+            protocol: a[0],
+            chain: a[1],
+            asset: a[2],
+            apyBps: Number(a[3]),
+            riskScore: Number(a[4]),
+            reasoningHash: a[5],
+            decision: a[6],
+            confidence: Number(a[7]),
+            timestamp: Number(a[8])
+          });
+        } catch(e) {
+          console.warn(`Skipping attestation ${i}:`, e.message);
+        }
       }
       
       return attestations;
