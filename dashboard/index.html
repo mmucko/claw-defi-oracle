@@ -1,381 +1,442 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claw's DeFi Oracle</title>
-  <style>
-    :root {
-      --bg: #0a0a0f;
-      --surface: #12121a;
-      --border: #1e1e2e;
-      --text: #e0e0e0;
-      --dim: #888;
-      --accent: #6c5ce7;
-      --green: #00b894;
-      --yellow: #fdcb6e;
-      --red: #e17055;
-      --blue: #74b9ff;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 2rem;
-    }
-    .container { max-width: 1200px; margin: 0 auto; }
-    
-    header {
-      text-align: center;
-      margin-bottom: 3rem;
-      padding: 2rem;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-    }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, var(--accent), var(--blue));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .subtitle { color: var(--dim); font-size: 0.9rem; }
-    .agent-info {
-      margin-top: 1rem;
-      font-size: 0.8rem;
-      color: var(--dim);
-    }
-    .agent-info a { color: var(--blue); text-decoration: none; }
-    
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-    .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.5rem;
-      text-align: center;
-    }
-    .stat-value { font-size: 2rem; font-weight: bold; }
-    .stat-label { color: var(--dim); font-size: 0.8rem; margin-top: 0.3rem; }
-    
-    .attestations {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    .table-header {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1fr 1fr;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.75rem;
-      color: var(--dim);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1fr 1fr;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      align-items: center;
-      transition: background 0.2s;
-    }
-    .row:hover { background: rgba(108, 92, 231, 0.05); }
-    .row:last-child { border-bottom: none; }
-    
-    .protocol-name { font-weight: 600; }
-    .chain-tag {
-      background: rgba(116, 185, 255, 0.15);
-      color: var(--blue);
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      display: inline-block;
-    }
-    .apy { color: var(--green); font-weight: 600; }
-    .risk-score {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-    .risk-bar {
-      width: 60px;
-      height: 6px;
-      background: var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .risk-fill { height: 100%; border-radius: 3px; }
-    
-    .decision {
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-align: center;
-    }
-    .decision-recommend, .decision-low-risk { background: rgba(0, 184, 148, 0.15); color: var(--green); }
-    .decision-caution, .decision-review { background: rgba(253, 203, 110, 0.15); color: var(--yellow); }
-    .decision-avoid, .decision-flagged { background: rgba(225, 112, 85, 0.15); color: var(--red); }
-    
-    .confidence { color: var(--dim); }
-    
-    .disclaimer {
-      margin-top: 2rem;
-      padding: 1.5rem;
-      border: 1px solid var(--red);
-      border-radius: 8px;
-      background: rgba(225, 112, 85, 0.05);
-      font-size: 0.8rem;
-      color: var(--dim);
-      text-align: center;
-    }
-    
-    .loading {
-      text-align: center;
-      padding: 3rem;
-      color: var(--dim);
-    }
-    .loading .spinner {
-      display: inline-block;
-      width: 30px;
-      height: 30px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claw's DeFi Oracle</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--text:#e0e0e0;--dim:#6b6b7b;--green:#00e676;--red:#ff5252;--blue:#448aff;--yellow:#ffd740}
+  body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code','Cascadia Code',monospace;font-size:14px;line-height:1.6;min-height:100vh}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .container{max-width:1200px;margin:0 auto;padding:24px 16px}
 
-    .last-updated {
-      text-align: center;
-      color: var(--dim);
-      font-size: 0.75rem;
-      margin-top: 1rem;
-    }
+  /* Header */
+  .header{text-align:center;padding:32px 0 24px;border-bottom:1px solid var(--border);margin-bottom:24px}
+  .header h1{font-size:28px;font-weight:700;margin-bottom:4px}
+  .header .subtitle{color:var(--dim);font-size:13px;margin-bottom:12px}
+  .header .links{font-size:12px;color:var(--dim)}
+  .header .links span{margin:0 8px}
+  .wallet-addr{color:var(--yellow);font-size:12px}
 
-    @media (max-width: 768px) {
-      body { padding: 1rem; }
-      .table-header, .row {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-      }
-      .table-header > *:nth-child(n+3),
-      .row > *:nth-child(n+3) { display: none; }
-    }
-  </style>
+  /* Stats Grid */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+  @media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px}
+  .stat-card .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:8px}
+  .stat-card .value{font-size:24px;font-weight:700}
+  .stat-card .sub{font-size:11px;color:var(--dim);margin-top:4px}
+  .loading{color:var(--dim);animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+  /* Chart */
+  .chart-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:24px}
+  .chart-section h2{font-size:16px;margin-bottom:16px;font-weight:600}
+  .chart-section canvas{max-height:300px}
+
+  /* Tables */
+  .section{margin-bottom:24px}
+  .section h2{font-size:16px;font-weight:600;margin-bottom:12px}
+  .table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:12px 14px;border-bottom:1px solid var(--border);color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap}
+  td{padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .dir-buy{color:var(--green);font-weight:700}.dir-sell{color:var(--red);font-weight:700}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .badge-bullish{background:rgba(0,230,118,.15);color:var(--green)}
+  .badge-bearish{background:rgba(255,82,82,.15);color:var(--red)}
+  .badge-neutral{background:rgba(107,107,123,.2);color:var(--dim)}
+  .badge-low-risk{background:rgba(0,230,118,.15);color:var(--green)}
+  .badge-review{background:rgba(255,215,64,.15);color:var(--yellow)}
+  .badge-flagged{background:rgba(255,82,82,.15);color:var(--red)}
+  .risk-bar{width:80px;height:6px;background:var(--border);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:6px}
+  .risk-fill{height:100%;border-radius:3px}
+  .reasoning-link{font-size:12px}
+  .reasoning-text{font-size:12px;color:var(--dim);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+
+  /* Collapsible */
+  .toggle-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:12px}
+  .toggle-btn:hover{border-color:var(--blue)}
+  .collapsible{display:none}.collapsible.open{display:block}
+
+  /* Disclaimer */
+  .disclaimer{border:1px solid var(--red);border-radius:8px;padding:16px;margin-top:8px;font-size:12px;color:var(--red);text-align:center;background:rgba(255,82,82,.05)}
+
+  .empty-state{text-align:center;padding:40px;color:var(--dim)}
+</style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🏴‍☠️ Claw's DeFi Oracle</h1>
-      <p class="subtitle">Autonomous AI Agent DeFi Research & On-Chain Risk Analysis</p>
-      <p class="agent-info">
-        Agent: <strong>Claw</strong> (OpenClaw / Claude Opus 4.6) · 
-        Contract: <a id="contract-link" href="#" target="_blank">Loading...</a> · 
-        Chain: Base
-      </p>
-    </header>
+<div class="container">
 
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-value" id="total-attestations">-</div>
-        <div class="stat-label">Total Attestations</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="protocols-covered">-</div>
-        <div class="stat-label">Protocols Analyzed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" style="color: var(--green)" id="recommended-count">-</div>
-        <div class="stat-label">Low Risk</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" style="color: var(--red)" id="avoided-count">-</div>
-        <div class="stat-label">Flagged</div>
-      </div>
-    </div>
-
-    <div class="attestations">
-      <div class="table-header">
-        <div>Protocol</div>
-        <div>Chain</div>
-        <div>Asset</div>
-        <div>APY</div>
-        <div>Risk</div>
-        <div>Decision</div>
-        <div>Confidence</div>
-      </div>
-      <div id="attestation-rows">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p style="margin-top: 1rem">Loading attestations from Base...</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="last-updated" id="last-updated"></div>
-
-    <div class="disclaimer">
-      ⚠️ <strong>DISCLAIMER:</strong> Generated by Claw, an AI agent running on Claude. 
-      This is NOT financial advice. All data is provided "as-is" without warranty. 
-      Do your own research. The agent may produce incorrect assessments. Use at your own risk.
+  <!-- Header -->
+  <div class="header">
+    <h1>🏴‍☠️ Claw's DeFi Oracle</h1>
+    <div class="subtitle">Autonomous AI Agent · DeFi Analysis & Sentiment Trading</div>
+    <div class="wallet-addr">0x2424...859A</div>
+    <div class="links">
+      <a href="https://basescan.org/address/0x2424EFcf32e8522149c1618a2CEBeb9A88D8859A" target="_blank">Wallet</a>
+      <span>·</span>
+      <a href="https://basescan.org/address/0x59acb4de869A77dEA4c53c2bac0D127317E1cfE8" target="_blank">ClawTrader</a>
+      <span>·</span>
+      <a href="https://basescan.org/address/0x5D93B6c50e1625478561308D25CaB9d89a3a6A77" target="_blank">ClawOracle</a>
     </div>
   </div>
 
-  <script type="module">
-    // Contract ABI (minimal for reading)
-    const ABI = [
-      "function count() view returns (uint256)",
-      "function get(uint256 id) view returns (tuple(string protocol, string chain, string asset, uint256 apyBps, uint8 riskScore, string reasoningHash, string decision, uint8 confidence, uint256 timestamp))",
-      "function latest(string protocol) view returns (tuple(string protocol, string chain, string asset, uint256 apyBps, uint8 riskScore, string reasoningHash, string decision, uint8 confidence, uint256 timestamp))"
-    ];
+  <!-- Portfolio Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">ETH Balance</div>
+      <div class="value" id="eth-bal"><span class="loading">...</span></div>
+      <div class="sub" id="eth-usd"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">USDC Balance</div>
+      <div class="value" id="usdc-bal"><span class="loading">...</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total Trades</div>
+      <div class="value" id="trade-count"><span class="loading">...</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Portfolio Value</div>
+      <div class="value" id="portfolio-val"><span class="loading">...</span></div>
+      <div class="sub" id="portfolio-sub"></div>
+    </div>
+  </div>
 
-    // Config
-    const ORACLE_ADDRESS = "0x5D93B6c50e1625478561308D25CaB9d89a3a6A77";
-    const BASE_RPC = "https://mainnet.base.org";
-    const BASESCAN = "https://basescan.org";
+  <!-- P&L Chart -->
+  <div class="chart-section">
+    <h2>Cumulative P&L</h2>
+    <canvas id="pnl-chart"></canvas>
+    <div id="chart-empty" class="empty-state" style="display:none">No trades yet</div>
+  </div>
 
-    // Contract is deployed on Base mainnet
-    const DEMO_MODE = false;
+  <!-- Trade History -->
+  <div class="section">
+    <h2>Trade History</h2>
+    <div class="table-wrap">
+      <table id="trades-table">
+        <thead>
+          <tr>
+            <th>Time</th><th>Direction</th><th>Asset</th><th>Amount In</th><th>Amount Out</th><th>Price</th><th>Sentiment</th><th>Conf</th><th>Reasoning</th>
+          </tr>
+        </thead>
+        <tbody id="trades-body">
+          <tr><td colspan="9" class="empty-state"><span class="loading">Loading trades...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-    function riskColor(score) {
-      if (score >= 7) return 'var(--green)';
-      if (score >= 4) return 'var(--yellow)';
-      return 'var(--red)';
+  <!-- DeFi Attestations -->
+  <div class="section">
+    <h2>DeFi Attestations</h2>
+    <button class="toggle-btn" id="toggle-attestations">Show DeFi Analysis ▼</button>
+    <div class="collapsible" id="attestations-panel">
+      <div class="table-wrap">
+        <table id="attestations-table">
+          <thead>
+            <tr>
+              <th>Protocol</th><th>Chain</th><th>Asset</th><th>APY</th><th>Risk Score</th><th>Decision</th><th>Conf</th>
+            </tr>
+          </thead>
+          <tbody id="attestations-body">
+            <tr><td colspan="7" class="empty-state"><span class="loading">Loading attestations...</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    ⚠️ Generated by Claw, an AI agent. NOT financial advice. DYOR.
+  </div>
+
+</div>
+
+<script type="module">
+const { ethers } = await import('https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.min.js');
+
+const WALLET = '0x2424EFcf32e8522149c1618a2CEBeb9A88D8859A';
+const RPC = 'https://mainnet.base.org';
+
+const TRADER_ADDR = '0x59acb4de869A77dEA4c53c2bac0D127317E1cfE8';
+const ORACLE_ADDR = '0x5D93B6c50e1625478561308D25CaB9d89a3a6A77';
+const USDC_ADDR = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+
+const TRADER_ABI = [
+  'function tradeCount() view returns (uint256)',
+  'function getTrade(uint256 id) view returns (tuple(string,string,uint256,uint256,uint256,string,string,uint8,uint256))'
+];
+const ORACLE_ABI = [
+  'function count() view returns (uint256)',
+  'function get(uint256 id) view returns (tuple(string,string,string,uint256,uint8,string,string,uint8,uint256))'
+];
+const USDC_ABI = ['function balanceOf(address) view returns (uint256)'];
+
+const provider = new ethers.JsonRpcProvider(RPC);
+const trader = new ethers.Contract(TRADER_ADDR, TRADER_ABI, provider);
+const oracle = new ethers.Contract(ORACLE_ADDR, ORACLE_ABI, provider);
+const usdc = new ethers.Contract(USDC_ADDR, USDC_ABI, provider);
+
+const $ = id => document.getElementById(id);
+
+// Toggle attestations
+$('toggle-attestations').addEventListener('click', () => {
+  const panel = $('attestations-panel');
+  const btn = $('toggle-attestations');
+  panel.classList.toggle('open');
+  btn.textContent = panel.classList.contains('open') ? 'Hide DeFi Analysis ▲' : 'Show DeFi Analysis ▼';
+});
+
+function fmt(n, d=4) { return Number(n).toFixed(d); }
+function fmtUsd(n) { return '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtTime(ts) {
+  const d = new Date(Number(ts) * 1000);
+  return d.toLocaleString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function sentimentName(s) { return ['BULLISH','BEARISH','NEUTRAL'][s] || 'UNKNOWN'; }
+function sentimentClass(s) { return ['bullish','bearish','neutral'][s] || 'neutral'; }
+function decisionLabel(d) {
+  const map = {'RECOMMEND':'LOW RISK','CAUTION':'REVIEW','AVOID':'FLAGGED'};
+  return map[d] || d;
+}
+function decisionClass(d) {
+  const map = {'RECOMMEND':'low-risk','CAUTION':'review','AVOID':'flagged'};
+  return map[d] || 'neutral';
+}
+function riskColor(score) {
+  if (score <= 3) return 'var(--green)';
+  if (score <= 6) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+// Fetch ETH price
+let ethPrice = 0;
+async function fetchEthPrice() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await res.json();
+    ethPrice = data.ethereum.usd;
+  } catch(e) {
+    console.error('ETH price fetch failed', e);
+    ethPrice = 0;
+  }
+}
+
+// Load balances
+async function loadBalances() {
+  await fetchEthPrice();
+
+  let ethBal = 0, usdcBal = 0, tradeN = 0;
+
+  try {
+    const raw = await provider.getBalance(WALLET);
+    ethBal = Number(ethers.formatEther(raw));
+    $('eth-bal').textContent = fmt(ethBal, 4) + ' ETH';
+    $('eth-usd').textContent = ethPrice ? fmtUsd(ethBal * ethPrice) : '';
+  } catch(e) { $('eth-bal').textContent = 'Error'; }
+
+  try {
+    const raw = await usdc.balanceOf(WALLET);
+    usdcBal = Number(raw) / 1e6;
+    $('usdc-bal').textContent = fmtUsd(usdcBal);
+  } catch(e) { $('usdc-bal').textContent = 'Error'; }
+
+  try {
+    tradeN = Number(await trader.tradeCount());
+    $('trade-count').textContent = tradeN;
+  } catch(e) { $('trade-count').textContent = 'Error'; }
+
+  const totalUsd = ethBal * ethPrice + usdcBal;
+  $('portfolio-val').textContent = ethPrice ? fmtUsd(totalUsd) : '...';
+  $('portfolio-sub').textContent = ethPrice ? `ETH @ ${fmtUsd(ethPrice)}` : '';
+
+  return tradeN;
+}
+
+// Load trades
+async function loadTrades(count) {
+  const trades = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const t = await trader.getTrade(i);
+      trades.push({
+        direction: t[0],
+        asset: t[1],
+        amountIn: t[2],
+        amountOut: t[3],
+        price: t[4],
+        reasoningHash: t[5],
+        sentiment: t[6],
+        confidence: Number(t[7]),
+        timestamp: t[8]
+      });
+    } catch(e) { console.error('Trade fetch error', i, e); }
+  }
+
+  const tbody = $('trades-body');
+
+  if (trades.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No trades recorded yet</td></tr>';
+    $('chart-empty').style.display = 'block';
+    return;
+  }
+
+  // Render table (newest first)
+  const sorted = [...trades].reverse();
+  tbody.innerHTML = sorted.map(t => {
+    const dir = t.direction.toUpperCase();
+    const dirClass = dir === 'BUY' ? 'dir-buy' : 'dir-sell';
+    const amtIn = fmt(Number(ethers.formatEther(t.amountIn)), 6);
+    const amtOut = fmt(Number(ethers.formatEther(t.amountOut)), 6);
+    const price = fmtUsd(Number(t.price) / 100);
+    const sent = t.sentiment;
+    const sentLabel = sent.toUpperCase ? sent.toUpperCase() : sentimentName(Number(sent));
+    const sentCls = sentLabel === 'BULLISH' ? 'bullish' : sentLabel === 'BEARISH' ? 'bearish' : 'neutral';
+    const hash = t.reasoningHash;
+    const reasoningHtml = hash && hash.startsWith('Qm')
+      ? `<a class="reasoning-link" href="https://gateway.pinata.cloud/ipfs/${hash}" target="_blank">IPFS ↗</a>`
+      : `<span class="reasoning-text">${hash || '-'}</span>`;
+
+    return `<tr>
+      <td>${fmtTime(t.timestamp)}</td>
+      <td class="${dirClass}">${dir}</td>
+      <td>${t.asset}</td>
+      <td>${amtIn}</td>
+      <td>${amtOut}</td>
+      <td>${price}</td>
+      <td><span class="badge badge-${sentCls}">${sentLabel}</span></td>
+      <td>${t.confidence}%</td>
+      <td>${reasoningHtml}</td>
+    </tr>`;
+  }).join('');
+
+  // P&L Chart
+  buildPnlChart(trades);
+}
+
+function buildPnlChart(trades) {
+  const sorted = [...trades].sort((a,b) => Number(a.timestamp) - Number(b.timestamp));
+  let cumPnl = 0;
+  const labels = [];
+  const data = [];
+
+  sorted.forEach(t => {
+    const dir = t.direction.toUpperCase();
+    const amtIn = Number(ethers.formatEther(t.amountIn));
+    const amtOut = Number(ethers.formatEther(t.amountOut));
+    const price = Number(t.price) / 100;
+
+    if (dir === 'BUY') {
+      cumPnl -= amtIn * price;
+    } else {
+      cumPnl += amtOut * price;
     }
 
-    // Map internal decisions to neutral display labels
-    const DECISION_LABELS = {
-      'RECOMMEND': 'LOW RISK',
-      'CAUTION': 'REVIEW',
-      'AVOID': 'FLAGGED'
-    };
+    labels.push(fmtTime(t.timestamp));
+    data.push(Number(cumPnl.toFixed(2)));
+  });
 
-    function decisionLabel(d) {
-      return DECISION_LABELS[d] || d;
-    }
-
-    function decisionClass(d) {
-      if (d === 'RECOMMEND') return 'decision-low-risk';
-      if (d === 'AVOID') return 'decision-flagged';
-      return 'decision-review';
-    }
-
-    function renderRow(a) {
-      return `
-        <div class="row">
-          <div class="protocol-name">${a.protocol}</div>
-          <div><span class="chain-tag">${a.chain}</span></div>
-          <div>${a.asset}</div>
-          <div class="apy">${(a.apyBps / 100).toFixed(2)}%</div>
-          <div class="risk-score">
-            ${a.riskScore}/10
-            <div class="risk-bar">
-              <div class="risk-fill" style="width: ${a.riskScore * 10}%; background: ${riskColor(a.riskScore)}"></div>
-            </div>
-          </div>
-          <div><span class="decision ${decisionClass(a.decision)}">${decisionLabel(a.decision)}</span></div>
-          <div class="confidence">${a.confidence}%</div>
-        </div>
-      `;
-    }
-
-    async function loadFromChain() {
-      // Dynamic import of ethers from CDN
-      const { ethers } = await import('https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.min.js');
-      
-      const provider = new ethers.JsonRpcProvider(BASE_RPC);
-      const oracle = new ethers.Contract(ORACLE_ADDRESS, ABI, provider);
-      
-      const total = await oracle.count();
-      const attestations = [];
-      
-      for (let i = 0; i < Number(total); i++) {
-        try {
-          const a = await oracle.get(i);
-          attestations.push({
-            protocol: a[0],
-            chain: a[1],
-            asset: a[2],
-            apyBps: Number(a[3]),
-            riskScore: Number(a[4]),
-            reasoningHash: a[5],
-            decision: a[6],
-            confidence: Number(a[7]),
-            timestamp: Number(a[8])
-          });
-        } catch(e) {
-          console.warn(`Skipping attestation ${i}:`, e.message);
+  const ctx = $('pnl-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative P&L (USD)',
+        data,
+        borderColor: data[data.length-1] >= 0 ? '#00e676' : '#ff5252',
+        backgroundColor: (data[data.length-1] >= 0 ? 'rgba(0,230,118,' : 'rgba(255,82,82,') + '0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: data.map(v => v >= 0 ? '#00e676' : '#ff5252'),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => 'P&L: ' + fmtUsd(ctx.parsed.y)
+          }
         }
+      },
+      scales: {
+        x: { ticks: { color: '#6b6b7b', font: { family: 'SF Mono, Fira Code, monospace', size: 11 } }, grid: { color: '#1e1e2e' } },
+        y: { ticks: { color: '#6b6b7b', callback: v => '$' + v, font: { family: 'SF Mono, Fira Code, monospace', size: 11 } }, grid: { color: '#1e1e2e' } }
       }
-      
-      return attestations;
     }
+  });
+}
 
-    async function loadDemoData() {
-      // Fetch fresh data from DeFiLlama for demo
-      try {
-        const res = await fetch('/analysis-results.json');
-        if (res.ok) return await res.json();
-      } catch(e) {}
-      
-      // Hardcoded fallback
-      return [
-        { protocol: "morpho-v1", chain: "Base", asset: "STEAKUSDC", apyBps: 365, riskScore: 8, decision: "RECOMMEND", confidence: 80 },
-        { protocol: "morpho-v1", chain: "Base", asset: "GTUSDCP", apyBps: 365, riskScore: 8, decision: "RECOMMEND", confidence: 80 },
-        { protocol: "aave-v3", chain: "Base", asset: "USDC", apyBps: 253, riskScore: 7, decision: "RECOMMEND", confidence: 80 },
-        { protocol: "gauntlet", chain: "Base", asset: "GTUSDA", apyBps: 424, riskScore: 7, decision: "RECOMMEND", confidence: 70 },
-        { protocol: "multipli.fi", chain: "Base", asset: "RWAUSDI", apyBps: 389, riskScore: 8, decision: "RECOMMEND", confidence: 70 },
-        { protocol: "uniswap-v3", chain: "Base", asset: "WETH-USDC", apyBps: 13281, riskScore: 2, decision: "AVOID", confidence: 80 },
-        { protocol: "aave-v3", chain: "Base", asset: "WETH", apyBps: 166, riskScore: 6, decision: "CAUTION", confidence: 70 },
-        { protocol: "avantis", chain: "Base", asset: "USDC", apyBps: 1000, riskScore: 7, decision: "RECOMMEND", confidence: 70 },
-      ];
-    }
+// Load attestations
+async function loadAttestations() {
+  let count = 0;
+  try { count = Number(await oracle.count()); } catch(e) {
+    $('attestations-body').innerHTML = '<tr><td colspan="7" class="empty-state">Error loading attestations</td></tr>';
+    return;
+  }
 
-    async function init() {
-      let attestations;
-      
-      if (DEMO_MODE) {
-        attestations = await loadDemoData();
-        document.getElementById('contract-link').textContent = 'Demo Mode (not deployed yet)';
-      } else {
-        attestations = await loadFromChain();
-        document.getElementById('contract-link').textContent = `${ORACLE_ADDRESS.slice(0,6)}...${ORACLE_ADDRESS.slice(-4)}`;
-        document.getElementById('contract-link').href = `${BASESCAN}/address/${ORACLE_ADDRESS}`;
-      }
+  if (count === 0) {
+    $('attestations-body').innerHTML = '<tr><td colspan="7" class="empty-state">No attestations yet</td></tr>';
+    return;
+  }
 
-      // Sort by risk score desc
-      attestations.sort((a, b) => b.riskScore - a.riskScore);
+  const items = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const a = await oracle.get(i);
+      items.push({
+        protocol: a[0],
+        chain: a[1],
+        asset: a[2],
+        apyBps: Number(a[3]),
+        riskScore: Number(a[4]),
+        reasoningHash: a[5],
+        decision: a[6],
+        confidence: Number(a[7]),
+        timestamp: a[8]
+      });
+    } catch(e) { console.error('Attestation fetch error', i, e); }
+  }
 
-      // Update stats
-      document.getElementById('total-attestations').textContent = attestations.length;
-      const protocols = new Set(attestations.map(a => a.protocol));
-      document.getElementById('protocols-covered').textContent = protocols.size;
-      document.getElementById('recommended-count').textContent = attestations.filter(a => a.decision === 'RECOMMEND').length;
-      document.getElementById('avoided-count').textContent = attestations.filter(a => a.decision === 'AVOID').length;
+  $('attestations-body').innerHTML = items.map(a => {
+    const apy = (a.apyBps / 100).toFixed(2) + '%';
+    const risk = a.riskScore;
+    const riskPct = Math.min(risk * 10, 100);
+    const label = decisionLabel(a.decision);
+    const cls = decisionClass(a.decision);
+    return `<tr>
+      <td>${a.protocol}</td>
+      <td>${a.chain}</td>
+      <td>${a.asset}</td>
+      <td>${apy}</td>
+      <td>${risk}/10 <div class="risk-bar"><div class="risk-fill" style="width:${riskPct}%;background:${riskColor(risk)}"></div></div></td>
+      <td><span class="badge badge-${cls}">${label}</span></td>
+      <td>${a.confidence}%</td>
+    </tr>`;
+  }).join('');
+}
 
-      // Render rows
-      const container = document.getElementById('attestation-rows');
-      container.innerHTML = attestations.map(renderRow).join('');
-      
-      document.getElementById('last-updated').textContent = `Last scan: ${new Date().toLocaleString()} · Powered by DeFiLlama + CoinGecko`;
-    }
+// Init
+async function init() {
+  try {
+    const tradeCount = await loadBalances();
+    await loadTrades(tradeCount);
+  } catch(e) { console.error('Init error', e); }
+  try {
+    await loadAttestations();
+  } catch(e) { console.error('Attestations error', e); }
+}
 
-    init().catch(e => {
-      console.error(e);
-      document.getElementById('attestation-rows').innerHTML = `<div class="loading">Error loading data: ${e.message}</div>`;
-    });
-  </script>
+init();
+</script>
 </body>
 </html>
