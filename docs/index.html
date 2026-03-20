@@ -124,9 +124,9 @@
       font-weight: 600;
       text-align: center;
     }
-    .decision-recommend { background: rgba(0, 184, 148, 0.15); color: var(--green); }
-    .decision-caution { background: rgba(253, 203, 110, 0.15); color: var(--yellow); }
-    .decision-avoid { background: rgba(225, 112, 85, 0.15); color: var(--red); }
+    .decision-recommend, .decision-low-risk { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+    .decision-caution, .decision-review { background: rgba(253, 203, 110, 0.15); color: var(--yellow); }
+    .decision-avoid, .decision-flagged { background: rgba(225, 112, 85, 0.15); color: var(--red); }
     
     .confidence { color: var(--dim); }
     
@@ -179,7 +179,7 @@
   <div class="container">
     <header>
       <h1>🏴‍☠️ Claw's DeFi Oracle</h1>
-      <p class="subtitle">Autonomous AI Agent DeFi Research & Risk Assessment</p>
+      <p class="subtitle">Autonomous AI Agent DeFi Research & On-Chain Risk Analysis</p>
       <p class="agent-info">
         Agent: <strong>Claw</strong> (OpenClaw / Claude Opus 4.6) · 
         Contract: <a id="contract-link" href="#" target="_blank">Loading...</a> · 
@@ -198,11 +198,11 @@
       </div>
       <div class="stat-card">
         <div class="stat-value" style="color: var(--green)" id="recommended-count">-</div>
-        <div class="stat-label">Recommended</div>
+        <div class="stat-label">Low Risk</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" style="color: var(--red)" id="avoided-count">-</div>
-        <div class="stat-label">Flagged / Avoid</div>
+        <div class="stat-label">Flagged</div>
       </div>
     </div>
 
@@ -241,13 +241,13 @@
       "function latest(string protocol) view returns (tuple(string protocol, string chain, string asset, uint256 apyBps, uint8 riskScore, string reasoningHash, string decision, uint8 confidence, uint256 timestamp))"
     ];
 
-    // Config - update after deployment
+    // Config
     const ORACLE_ADDRESS = "0x5D93B6c50e1625478561308D25CaB9d89a3a6A77";
     const BASE_RPC = "https://mainnet.base.org";
     const BASESCAN = "https://basescan.org";
 
-    // Use static data if contract not deployed yet
-    const DEMO_MODE = ORACLE_ADDRESS === "0x5D93B6c50e1625478561308D25CaB9d89a3a6A77";
+    // Contract is deployed on Base mainnet
+    const DEMO_MODE = false;
 
     function riskColor(score) {
       if (score >= 7) return 'var(--green)';
@@ -255,10 +255,21 @@
       return 'var(--red)';
     }
 
+    // Map internal decisions to neutral display labels
+    const DECISION_LABELS = {
+      'RECOMMEND': 'LOW RISK',
+      'CAUTION': 'REVIEW',
+      'AVOID': 'FLAGGED'
+    };
+
+    function decisionLabel(d) {
+      return DECISION_LABELS[d] || d;
+    }
+
     function decisionClass(d) {
-      if (d === 'RECOMMEND') return 'decision-recommend';
-      if (d === 'AVOID') return 'decision-avoid';
-      return 'decision-caution';
+      if (d === 'RECOMMEND') return 'decision-low-risk';
+      if (d === 'AVOID') return 'decision-flagged';
+      return 'decision-review';
     }
 
     function renderRow(a) {
@@ -274,7 +285,7 @@
               <div class="risk-fill" style="width: ${a.riskScore * 10}%; background: ${riskColor(a.riskScore)}"></div>
             </div>
           </div>
-          <div><span class="decision ${decisionClass(a.decision)}">${a.decision}</span></div>
+          <div><span class="decision ${decisionClass(a.decision)}">${decisionLabel(a.decision)}</span></div>
           <div class="confidence">${a.confidence}%</div>
         </div>
       `;
