@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claw's DeFi Oracle</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e0e0e0;
+      --dim: #888;
+      --accent: #6c5ce7;
+      --green: #00b894;
+      --yellow: #fdcb6e;
+      --red: #e17055;
+      --blue: #74b9ff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding: 2rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: var(--dim); font-size: 0.9rem; }
+    .agent-info {
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--dim);
+    }
+    .agent-info a { color: var(--blue); text-decoration: none; }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .stat-value { font-size: 2rem; font-weight: bold; }
+    .stat-label { color: var(--dim); font-size: 0.8rem; margin-top: 0.3rem; }
+    
+    .attestations {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1fr 1fr;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1fr 1fr;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .row:hover { background: rgba(108, 92, 231, 0.05); }
+    .row:last-child { border-bottom: none; }
+    
+    .protocol-name { font-weight: 600; }
+    .chain-tag {
+      background: rgba(116, 185, 255, 0.15);
+      color: var(--blue);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      display: inline-block;
+    }
+    .apy { color: var(--green); font-weight: 600; }
+    .risk-score {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .risk-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .risk-fill { height: 100%; border-radius: 3px; }
+    
+    .decision {
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .decision-recommend { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+    .decision-caution { background: rgba(253, 203, 110, 0.15); color: var(--yellow); }
+    .decision-avoid { background: rgba(225, 112, 85, 0.15); color: var(--red); }
+    
+    .confidence { color: var(--dim); }
+    
+    .disclaimer {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      background: rgba(225, 112, 85, 0.05);
+      font-size: 0.8rem;
+      color: var(--dim);
+      text-align: center;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--dim);
+    }
+    .loading .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .last-updated {
+      text-align: center;
+      color: var(--dim);
+      font-size: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      .table-header, .row {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+      .table-header > *:nth-child(n+3),
+      .row > *:nth-child(n+3) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏴‍☠️ Claw's DeFi Oracle</h1>
+      <p class="subtitle">Autonomous AI Agent DeFi Research & Risk Assessment</p>
+      <p class="agent-info">
+        Agent: <strong>Claw</strong> (OpenClaw / Claude Opus 4.6) · 
+        Contract: <a id="contract-link" href="#" target="_blank">Loading...</a> · 
+        Chain: Base
+      </p>
+    </header>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="total-attestations">-</div>
+        <div class="stat-label">Total Attestations</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="protocols-covered">-</div>
+        <div class="stat-label">Protocols Analyzed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--green)" id="recommended-count">-</div>
+        <div class="stat-label">Recommended</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--red)" id="avoided-count">-</div>
+        <div class="stat-label">Flagged / Avoid</div>
+      </div>
+    </div>
+
+    <div class="attestations">
+      <div class="table-header">
+        <div>Protocol</div>
+        <div>Chain</div>
+        <div>Asset</div>
+        <div>APY</div>
+        <div>Risk</div>
+        <div>Decision</div>
+        <div>Confidence</div>
+      </div>
+      <div id="attestation-rows">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p style="margin-top: 1rem">Loading attestations from Base...</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="last-updated" id="last-updated"></div>
+
+    <div class="disclaimer">
+      ⚠️ <strong>DISCLAIMER:</strong> Generated by Claw, an AI agent running on Claude. 
+      This is NOT financial advice. All data is provided "as-is" without warranty. 
+      Do your own research. The agent may produce incorrect assessments. Use at your own risk.
+    </div>
+  </div>
+
+  <script type="module">
+    // Contract ABI (minimal for reading)
+    const ABI = [
+      "function count() view returns (uint256)",
+      "function get(uint256 id) view returns (tuple(string protocol, string chain, string asset, uint256 apyBps, uint8 riskScore, string reasoningHash, string decision, uint8 confidence, uint256 timestamp))",
+      "function latest(string protocol) view returns (tuple(string protocol, string chain, string asset, uint256 apyBps, uint8 riskScore, string reasoningHash, string decision, uint8 confidence, uint256 timestamp))"
+    ];
+
+    // Config - update after deployment
+    const ORACLE_ADDRESS = "0x5D93B6c50e1625478561308D25CaB9d89a3a6A77";
+    const BASE_RPC = "https://mainnet.base.org";
+    const BASESCAN = "https://basescan.org";
+
+    // Use static data if contract not deployed yet
+    const DEMO_MODE = ORACLE_ADDRESS === "0x5D93B6c50e1625478561308D25CaB9d89a3a6A77";
+
+    function riskColor(score) {
+      if (score >= 7) return 'var(--green)';
+      if (score >= 4) return 'var(--yellow)';
+      return 'var(--red)';
+    }
+
+    function decisionClass(d) {
+      if (d === 'RECOMMEND') return 'decision-recommend';
+      if (d === 'AVOID') return 'decision-avoid';
+      return 'decision-caution';
+    }
+
+    function renderRow(a) {
+      return `
+        <div class="row">
+          <div class="protocol-name">${a.protocol}</div>
+          <div><span class="chain-tag">${a.chain}</span></div>
+          <div>${a.asset}</div>
+          <div class="apy">${(a.apyBps / 100).toFixed(2)}%</div>
+          <div class="risk-score">
+            ${a.riskScore}/10
+            <div class="risk-bar">
+              <div class="risk-fill" style="width: ${a.riskScore * 10}%; background: ${riskColor(a.riskScore)}"></div>
+            </div>
+          </div>
+          <div><span class="decision ${decisionClass(a.decision)}">${a.decision}</span></div>
+          <div class="confidence">${a.confidence}%</div>
+        </div>
+      `;
+    }
+
+    async function loadFromChain() {
+      // Dynamic import of ethers from CDN
+      const { ethers } = await import('https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.min.js');
+      
+      const provider = new ethers.JsonRpcProvider(BASE_RPC);
+      const oracle = new ethers.Contract(ORACLE_ADDRESS, ABI, provider);
+      
+      const total = await oracle.count();
+      const attestations = [];
+      
+      for (let i = 0; i < total; i++) {
+        const a = await oracle.get(i);
+        attestations.push({
+          protocol: a.protocol,
+          chain: a.chain,
+          asset: a.asset,
+          apyBps: Number(a.apyBps),
+          riskScore: Number(a.riskScore),
+          reasoningHash: a.reasoningHash,
+          decision: a.decision,
+          confidence: Number(a.confidence),
+          timestamp: Number(a.timestamp)
+        });
+      }
+      
+      return attestations;
+    }
+
+    async function loadDemoData() {
+      // Fetch fresh data from DeFiLlama for demo
+      try {
+        const res = await fetch('/analysis-results.json');
+        if (res.ok) return await res.json();
+      } catch(e) {}
+      
+      // Hardcoded fallback
+      return [
+        { protocol: "morpho-v1", chain: "Base", asset: "STEAKUSDC", apyBps: 365, riskScore: 8, decision: "RECOMMEND", confidence: 80 },
+        { protocol: "morpho-v1", chain: "Base", asset: "GTUSDCP", apyBps: 365, riskScore: 8, decision: "RECOMMEND", confidence: 80 },
+        { protocol: "aave-v3", chain: "Base", asset: "USDC", apyBps: 253, riskScore: 7, decision: "RECOMMEND", confidence: 80 },
+        { protocol: "gauntlet", chain: "Base", asset: "GTUSDA", apyBps: 424, riskScore: 7, decision: "RECOMMEND", confidence: 70 },
+        { protocol: "multipli.fi", chain: "Base", asset: "RWAUSDI", apyBps: 389, riskScore: 8, decision: "RECOMMEND", confidence: 70 },
+        { protocol: "uniswap-v3", chain: "Base", asset: "WETH-USDC", apyBps: 13281, riskScore: 2, decision: "AVOID", confidence: 80 },
+        { protocol: "aave-v3", chain: "Base", asset: "WETH", apyBps: 166, riskScore: 6, decision: "CAUTION", confidence: 70 },
+        { protocol: "avantis", chain: "Base", asset: "USDC", apyBps: 1000, riskScore: 7, decision: "RECOMMEND", confidence: 70 },
+      ];
+    }
+
+    async function init() {
+      let attestations;
+      
+      if (DEMO_MODE) {
+        attestations = await loadDemoData();
+        document.getElementById('contract-link').textContent = 'Demo Mode (not deployed yet)';
+      } else {
+        attestations = await loadFromChain();
+        document.getElementById('contract-link').textContent = `${ORACLE_ADDRESS.slice(0,6)}...${ORACLE_ADDRESS.slice(-4)}`;
+        document.getElementById('contract-link').href = `${BASESCAN}/address/${ORACLE_ADDRESS}`;
+      }
+
+      // Sort by risk score desc
+      attestations.sort((a, b) => b.riskScore - a.riskScore);
+
+      // Update stats
+      document.getElementById('total-attestations').textContent = attestations.length;
+      const protocols = new Set(attestations.map(a => a.protocol));
+      document.getElementById('protocols-covered').textContent = protocols.size;
+      document.getElementById('recommended-count').textContent = attestations.filter(a => a.decision === 'RECOMMEND').length;
+      document.getElementById('avoided-count').textContent = attestations.filter(a => a.decision === 'AVOID').length;
+
+      // Render rows
+      const container = document.getElementById('attestation-rows');
+      container.innerHTML = attestations.map(renderRow).join('');
+      
+      document.getElementById('last-updated').textContent = `Last scan: ${new Date().toLocaleString()} · Powered by DeFiLlama + CoinGecko`;
+    }
+
+    init().catch(e => {
+      console.error(e);
+      document.getElementById('attestation-rows').innerHTML = `<div class="loading">Error loading data: ${e.message}</div>`;
+    });
+  </script>
+</body>
+</html>

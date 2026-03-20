@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+/**
+ * Claw's DeFi Yield Analyzer
+ * 
+ * Fetches yield data from DeFiLlama, analyzes protocols,
+ * and generates risk assessments for on-chain attestation.
+ * 
+ * Usage: node scripts/analyze-yields.js [--chain base] [--min-tvl 1000000] [--top 20]
+ */
+
+const https = require('https');
+
+// Config
+const MIN_TVL = parseInt(process.argv.find((a, i) => process.argv[i-1] === '--min-tvl') || '1000000');
+const CHAIN_FILTER = process.argv.find((a, i) => process.argv[i-1] === '--chain') || null;
+const TOP_N = parseInt(process.argv.find((a, i) => process.argv[i-1] === '--top') || '20');
+
+function fetch(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Parse error: ${e.message}`)); }
+      });
+    }).on('error', reject);
+  });
+}
+
+// Risk scoring methodology
+function assessRisk(pool, protocolMeta) {
+  let score = 5; // Start neutral
+  const factors = [];
+
+  // TVL factor (higher = safer)
+  if (pool.tvlUsd > 1e9) { score += 2; factors.push('TVL >$1B (+2)'); }
+  else if (pool.tvlUsd > 100e6) { score += 1; factors.push('TVL >$100M (+1)'); }
+  else if (pool.tvlUsd < 1e6) { score -= 2; factors.push('TVL <$1M (-2)'); }
+
+  // APY sanity (extremely high APY = risky)
+  if (pool.apy > 100) { score -= 3; factors.push('APY >100% suspicious (-3)'); }
+  else if (pool.apy > 50) { score -= 2; factors.push('APY >50% elevated risk (-2)'); }
+  else if (pool.apy > 20) { score -= 1; factors.push('APY >20% moderate risk (-1)'); }
+
+  // Stablecoin bonus (less volatile)
+  if (pool.stablecoin) { score += 1; factors.push('Stablecoin pool (+1)'); }
+
+  // IL risk
+  if (pool.ilRisk === 'no') { score += 1; factors.push('No IL risk (+1)'); }
+
+  // Audit status from protocol meta
+  if (protocolMeta && protocolMeta.audits === '1') { score += 1; factors.push('Audited (+1)'); }
+
+  // Clamp to 1-10
+  score = Math.max(1, Math.min(10, score));
+
+  // Decision
+  let decision = 'CAUTION';
+  if (score >= 7) decision = 'RECOMMEND';
+  if (score <= 3) decision = 'AVOID';
+
+  // Confidence based on data completeness
+  let confidence = 60;
+  if (pool.tvlUsd > 10e6) confidence += 10;
+  if (protocolMeta) confidence += 10;
+  if (pool.apy !== null && pool.apy !== undefined) confidence += 10;
+  confidence = Math.min(100, confidence);
+
+  return { score, decision, confidence, factors };
+}
+
+async function main() {
+  console.log('🏴‍☠️ Claw\'s DeFi Yield Analyzer');
+  console.log(`Config: min TVL=$${(MIN_TVL/1e6).toFixed(1)}M | chain=${CHAIN_FILTER || 'all'} | top=${TOP_N}`);
+  console.log('---');
+
+  // Fetch yield pools
+  console.log('Fetching yield data from DeFiLlama...');
+  const pools = await fetch('https://yields.llama.fi/pools');
+  
+  // Fetch protocol list for audit info
+  console.log('Fetching protocol metadata...');
+  const protocols = await fetch('https://api.llama.fi/protocols');
+  const protocolMap = {};
+  protocols.forEach(p => { protocolMap[p.name.toLowerCase()] = p; });
+
+  // Filter and sort
+  let filtered = pools.data.filter(p => {
+    if (p.tvlUsd < MIN_TVL) return false;
+    if (CHAIN_FILTER && p.chain.toLowerCase() !== CHAIN_FILTER.toLowerCase()) return false;
+    if (p.apy === null || p.apy === undefined || p.apy <= 0) return false;
+    return true;
+  });
+
+  // Sort by TVL (safety first)
+  filtered.sort((a, b) => b.tvlUsd - a.tvlUsd);
+  filtered = filtered.slice(0, TOP_N);
+
+  console.log(`\nAnalyzing ${filtered.length} pools...\n`);
+
+  const results = [];
+
+  for (const pool of filtered) {
+    const protocolMeta = protocolMap[pool.project.toLowerCase()];
+    const risk = assessRisk(pool, protocolMeta);
+
+    const result = {
+      protocol: pool.project,
+      chain: pool.chain,
+      asset: pool.symbol,
+      pool: pool.pool,
+      tvl: pool.tvlUsd,
+      apy: pool.apy,
+      apyBps: Math.round(pool.apy * 100),
+      riskScore: risk.score,
+      decision: risk.decision,
+      confidence: risk.confidence,
+      factors: risk.factors,
+      stablecoin: pool.stablecoin || false,
+      ilRisk: pool.ilRisk || 'unknown'
+    };
+
+    results.push(result);
+
+    const emoji = risk.decision === 'RECOMMEND' ? '✅' : risk.decision === 'AVOID' ? '❌' : '⚠️';
+    console.log(`${emoji} ${pool.project} | ${pool.chain} | ${pool.symbol}`);
+    console.log(`   APY: ${pool.apy.toFixed(2)}% | TVL: $${(pool.tvlUsd/1e6).toFixed(1)}M | Risk: ${risk.score}/10 | ${risk.decision}`);
+    console.log(`   Factors: ${risk.factors.join(', ')}`);
+    console.log('');
+  }
+
+  // Summary
+  const recommended = results.filter(r => r.decision === 'RECOMMEND');
+  const caution = results.filter(r => r.decision === 'CAUTION');
+  const avoid = results.filter(r => r.decision === 'AVOID');
+
+  console.log('---');
+  console.log(`📊 Summary: ${recommended.length} RECOMMEND | ${caution.length} CAUTION | ${avoid.length} AVOID`);
+  console.log('');
+  console.log('⚠️ DISCLAIMER: Generated by Claw, an AI agent. Not financial advice. DYOR.');
+
+  // Output JSON for on-chain recording
+  const outputPath = process.argv.find((a, i) => process.argv[i-1] === '--output');
+  if (outputPath) {
+    const fs = require('fs');
+    fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
+    console.log(`\n📁 Results saved to ${outputPath}`);
+  }
+
+  return results;
+}
+
+main().catch(console.error);

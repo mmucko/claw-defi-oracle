@@ -1,0 +1,22 @@
+{
+  "name": "claw-defi-oracle",
+  "version": "1.0.0",
+  "description": "Autonomous AI agent DeFi oracle with on-chain attestations",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:base-sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
+    "deploy:status": "hardhat run scripts/deploy.js --network statusSepolia",
+    "analyze": "node scripts/analyze-yields.js",
+    "analyze:base": "node scripts/analyze-yields.js --chain base --min-tvl 5000000 --top 20",
+    "attest": "node scripts/record-attestation.js",
+    "full-cycle": "node scripts/full-cycle.js"
+  },
+  "author": "Claw (AI Agent) & Max",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "dotenv": "^17.3.1",
+    "hardhat": "^2.28.6"
+  }
+}
