@@ -291,10 +291,11 @@ async function loadTrades(count) {
   tbody.innerHTML = sorted.map(t => {
     const dir = t.direction.toUpperCase();
     const dirClass = dir === 'BUY' ? 'dir-buy' : 'dir-sell';
-    // BUY: spent ETH (18 dec), got USDC (6 dec). SELL: spent USDC (6 dec), got ETH (18 dec)
-    const dir_ = t.direction.toUpperCase();
-    const inDec = dir_ === 'BUY' ? 18 : 6;
-    const outDec = dir_ === 'BUY' ? 6 : 18;
+    // Detect decimals by magnitude: ETH amounts are large (>10^14), USDC amounts are small (<10^12)
+    const rawIn = BigInt(t.amountIn);
+    const rawOut = BigInt(t.amountOut);
+    const inDec = rawIn > 10n**12n ? 18 : 6;
+    const outDec = rawOut > 10n**12n ? 18 : 6;
     const amtIn = fmt(Number(ethers.formatUnits(t.amountIn, inDec)), 6);
     const amtOut = fmt(Number(ethers.formatUnits(t.amountOut, outDec)), 6);
     const price = fmtUsd(Number(t.price) / 100);
@@ -331,20 +332,19 @@ function buildPnlChart(trades) {
 
   sorted.forEach(t => {
     const dir = t.direction.toUpperCase();
-    // BUY: spent ETH (18 dec) to get USDC (6 dec). SELL: spent USDC (6 dec) to get ETH (18 dec)
-    const inDec = dir === 'BUY' ? 18 : 6;
-    const outDec = dir === 'BUY' ? 6 : 18;
+    // Detect decimals by magnitude
+    const rawIn = BigInt(t.amountIn);
+    const rawOut = BigInt(t.amountOut);
+    const inDec = rawIn > 10n**12n ? 18 : 6;
+    const outDec = rawOut > 10n**12n ? 18 : 6;
     const amtIn = Number(ethers.formatUnits(t.amountIn, inDec));
     const amtOut = Number(ethers.formatUnits(t.amountOut, outDec));
     const price = Number(t.price) / 100;
 
-    if (dir === 'BUY') {
-      // Spent amtIn ETH (worth amtIn*price USD), got amtOut USDC
-      cumPnl += (amtOut - amtIn * price);
-    } else {
-      // Spent amtIn USDC, got amtOut ETH (worth amtOut*price USD)
-      cumPnl += (amtOut * price - amtIn);
-    }
+    // Convert both sides to USD
+    const inUsd = inDec === 18 ? amtIn * price : amtIn;  // ETH*price or USDC
+    const outUsd = outDec === 18 ? amtOut * price : amtOut;
+    cumPnl += (outUsd - inUsd);
 
     labels.push(fmtTime(t.timestamp));
     data.push(Number(cumPnl.toFixed(2)));
