@@ -291,8 +291,12 @@ async function loadTrades(count) {
   tbody.innerHTML = sorted.map(t => {
     const dir = t.direction.toUpperCase();
     const dirClass = dir === 'BUY' ? 'dir-buy' : 'dir-sell';
-    const amtIn = fmt(Number(ethers.formatEther(t.amountIn)), 6);
-    const amtOut = fmt(Number(ethers.formatEther(t.amountOut)), 6);
+    // BUY: spent ETH (18 dec), got USDC (6 dec). SELL: spent USDC (6 dec), got ETH (18 dec)
+    const dir_ = t.direction.toUpperCase();
+    const inDec = dir_ === 'BUY' ? 18 : 6;
+    const outDec = dir_ === 'BUY' ? 6 : 18;
+    const amtIn = fmt(Number(ethers.formatUnits(t.amountIn, inDec)), 6);
+    const amtOut = fmt(Number(ethers.formatUnits(t.amountOut, outDec)), 6);
     const price = fmtUsd(Number(t.price) / 100);
     const sent = t.sentiment;
     const sentLabel = sent.toUpperCase ? sent.toUpperCase() : sentimentName(Number(sent));
@@ -327,14 +331,19 @@ function buildPnlChart(trades) {
 
   sorted.forEach(t => {
     const dir = t.direction.toUpperCase();
-    const amtIn = Number(ethers.formatEther(t.amountIn));
-    const amtOut = Number(ethers.formatEther(t.amountOut));
+    // BUY: spent ETH (18 dec) to get USDC (6 dec). SELL: spent USDC (6 dec) to get ETH (18 dec)
+    const inDec = dir === 'BUY' ? 18 : 6;
+    const outDec = dir === 'BUY' ? 6 : 18;
+    const amtIn = Number(ethers.formatUnits(t.amountIn, inDec));
+    const amtOut = Number(ethers.formatUnits(t.amountOut, outDec));
     const price = Number(t.price) / 100;
 
     if (dir === 'BUY') {
-      cumPnl -= amtIn * price;
+      // Spent amtIn ETH (worth amtIn*price USD), got amtOut USDC
+      cumPnl += (amtOut - amtIn * price);
     } else {
-      cumPnl += amtOut * price;
+      // Spent amtIn USDC, got amtOut ETH (worth amtOut*price USD)
+      cumPnl += (amtOut * price - amtIn);
     }
 
     labels.push(fmtTime(t.timestamp));
